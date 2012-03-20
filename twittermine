@@ -1,0 +1,117 @@
+#!/usr/bin/env ruby
+%w{ rubygems twitter json yaml }.each{ |x| require x }
+YAML::load(File.read('config.yaml')).each_pair{ |k,v| Twitter.send("#{k}=", v) }
+
+#
+# HOWTO:
+# 
+# Ex. build a visual index of the people who follow both @bldgblog and @footage
+# 
+#    % ./twittermine mob bldgblog footage
+#      => Writing bldgblog-footage.mob.html
+#
+#    % open bldgblog-footage.mob.html
+# 
+
+
+#
+# NOTE: to use, register an app on twitter and create a file called config.yaml in the 
+# same dir that looks like this:
+# 
+#   consumer_key: "..."
+#   consumer_secret: "..."
+#   oauth_token: "..."
+#   oauth_token_secret: "..."
+#
+
+
+
+# ===========
+# = Lib
+# ===========
+
+def ids(sn, meth)
+  FileUtils.mkdir_p 'db'
+  fn = "db/#{sn}-#{meth}.ids"
+  unless File.exists?(fn)
+    File.open(fn, 'w') do |f|
+      puts "  ==> Fetching #{sn} #{meth}"
+      cursor = "-1"
+      while cursor != 0 do
+       result = Twitter.send(meth, sn, :cursor => cursor)
+       cursor = result.next_cursor
+       result.ids.each{ |x| f.puts x }
+       sleep 1
+      end
+    end
+  end
+  File.read(fn).split("\n").map{ |n| n.to_i }
+end
+
+def isect(sns, meth)
+  sns.map{ |sn| ids(sn, meth) }.reduce(&:&)
+end
+
+def with_each_user(ids, &blk)
+  (1..10).each do |cohort|
+    first = (cohort-1)*100
+    last = cohort*100 - 1
+    group = ids[first..last]
+    next if !group or group.empty?
+    Twitter.users(*group).each(&blk)
+  end  
+end
+
+
+# ===========
+# = Commands
+# ===========
+
+case fn = ARGV.shift
+
+when 'ids'
+  puts isect(ARGV, :follower_ids)
+
+when 'follows_ids'
+  puts isect(ARGV, :friend_ids)
+
+when 'list_add'
+  listname = ARGV.shift
+  ids = File.read(ARGV.shift).split("\n").map{ |x| x.to_i }
+  (1..10).each do |cohort|
+    first = (cohort-1)*100
+    last = cohort*100 - 1
+    group = ids[first..last]
+    next if !group or group.empty?
+    Twitter.list_add_members(listname, group)
+  end  
+
+when 'by_city'
+  cities = Hash.new{ |h,k| h[k] = [] }
+  with_each_user(isect(ARGV, :follower_ids)) do |u|
+    city = (u.location||'nowhere').downcase.split(/\W+/)[0..1].join(' ')
+    cities[city] << u
+  end
+  fn = "#{ARGV.join('-')}.by_city.html"
+  File.open(fn, 'w') do |f|
+    puts "  ==> Writing #{fn}."
+    cities.each do |city, users|
+      f.puts "<p>#{city}</p>";
+      users.each do |u|
+        f.puts %Q{<a href="http://twitter.com/#{u.screen_name}"><img src="#{u.profile_image_url}" style="width:48" title="#{u.location} -- #{u.name} -- #{u.description}"/></a>}
+      end
+    end
+  end
+  
+when 'mob'
+  ids = isect(ARGV, :follower_ids)
+  fn = "#{ARGV.join('-')}.mob.html"
+  File.open(fn, 'w') do |f|
+    puts "  ==> Writing #{fn}."
+    with_each_user(ids) do |u|
+      f.puts %Q{<a href="http://twitter.com/#{u.screen_name}"><img src="#{u.profile_image_url}" style="width:48" title="#{u.location} -- #{u.name} -- #{u.description}"/></a>}
+    end
+  end
+
+end
+
