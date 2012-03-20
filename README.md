@@ -1,6 +1,6 @@
 USAGE
 
-* build a visual index of the people who follow both @bldgblog and @footage
+Build a visual index of the people who follow both @bldgblog and @footage
 
     % ./twittermine mob bldgblog footage
     => Writing bldgblog-footage.mob.html
@@ -8,4 +8,4 @@ USAGE
     % open bldgblog-footage.mob.html
 
 
-* contact me with questions
+Contact me with questions
