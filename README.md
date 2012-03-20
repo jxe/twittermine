@@ -4,7 +4,7 @@ USAGE
 
     % ./twittermine mob bldgblog footage
     => Writing bldgblog-footage.mob.html
-
+    
     % open bldgblog-footage.mob.html
 
 
