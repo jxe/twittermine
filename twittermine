@@ -1,6 +1,18 @@
 #!/usr/bin/env ruby
-%w{ rubygems twitter json yaml }.each{ |x| require x }
-YAML::load(File.read('config.yaml')).each_pair{ |k,v| Twitter.send("#{k}=", v) }
+%w{ rubygems twitter json yaml fileutils }.each{ |x| require x }
+if not File.exists? 'config.yaml' then
+  puts "To use, register an app on twitter and create a config.yaml file"
+  puts "including the following variables:"
+  puts "- consumer_key"
+  puts "- consumer_secret"
+  puts "- oauth_token"
+  puts "- oauth_token_secret"
+  exit(1)
+end
+YAML::load(File.read('config.yaml')).each_pair{ |k,v|
+  Twitter.send("#{k}=", v) }
+
+browser = '/Applications/Google Chrome.app'
 
 #
 # HOWTO:
@@ -92,26 +104,49 @@ when 'by_city'
     city = (u.location||'nowhere').downcase.split(/\W+/)[0..1].join(' ')
     cities[city] << u
   end
-  fn = "#{ARGV.join('-')}.by_city.html"
+  cities = cities.entries.sort_by{|city, users| users.length}.reverse
+  FileUtils.mkdir_p 'output'
+  fn = "output/#{ARGV.join('-')}.by_city.html"
+
+  style_sheet = "<style>body { font-family: helvetica, arial; } h1 {font-weight: normal; } a { text-decoration: none; } .city{overflow: auto; border-bottom: 2px solid #aaaaaa; padding: 2px; }.user {float: left; width: 200px; padding: 2px; } .user h4 { margin: 0 0 .25em 0;} .user img {float: left; margin-right: 5px; width:60px; } .user .desc { color: #777777; font-size: 10pt; }</style>"
+
   File.open(fn, 'w') do |f|
     puts "  ==> Writing #{fn}."
     cities.each do |city, users|
-      f.puts "<p>#{city}</p>";
+      f.puts style_sheet
+      f.puts "<h1>#{city.split(' ').map(&:capitalize).join(' ')}</h1>";
+      f.puts "<div class='city'>"
       users.each do |u|
-        f.puts %Q{<a href="http://twitter.com/#{u.screen_name}"><img src="#{u.profile_image_url}" style="width:48" title="#{u.location} -- #{u.name} -- #{u.description}"/></a>}
+        f.puts "<div class='user'>"
+        f.puts %Q{<img src="#{u.profile_image_url}"/> }
+        f.puts "<div class='info'>"
+        f.puts %Q{<a href="http://twitter.com/#{u.screen_name}" target="_blank"> }
+        f.puts %Q{<h4>#{u.name}</h4>}
+        f.puts %Q{</a>}
+        f.puts %Q{<div class='desc'>#{u.description}</div>}
+        f.puts "</div></div>"
       end
+      f.puts "</div>"
     end
   end
+  `open -a "#{browser}" #{fn}`
   
 when 'mob'
   ids = isect(ARGV, :follower_ids)
-  fn = "#{ARGV.join('-')}.mob.html"
+  FileUtils.mkdir_p 'output'
+  fn = "output/#{ARGV.join('-')}.mob.html"
   File.open(fn, 'w') do |f|
     puts "  ==> Writing #{fn}."
     with_each_user(ids) do |u|
       f.puts %Q{<a href="http://twitter.com/#{u.screen_name}"><img src="#{u.profile_image_url}" style="width:48" title="#{u.location} -- #{u.name} -- #{u.description}"/></a>}
     end
   end
+  `open -a "#{browser}" #{fn}`
+
+else
+
+  puts "usage: twittermine mode name1 name2 [name3, ...]"
+  puts "modes: mob, by_city"
 
 end
 
