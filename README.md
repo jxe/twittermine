@@ -1,3 +1,7 @@
+## About
+
+A nifty little tool by jxe to find people who follow interesting combinations of twitterers.
+
 ## Configuration
 
 Create a twitter app and create a config.yaml file with the oauth info.
